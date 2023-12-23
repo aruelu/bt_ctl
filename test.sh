@@ -2,11 +2,11 @@
 
 function search_devices {
     # Bluetoothデバイスのサーチ
-    devices=$(sudo bluetoothctl scan on && sleep 5 && sudo bluetoothctl scan off && sudo bluetoothctl devices)
+    sudo bluetoothctl scan on &
 
-    # 検出されたBluetoothデバイスのリストを表示
-    echo "検出されたBluetoothデバイス:"
-    echo "$devices"
+    # 指定した秒数待機後、scan offを実行
+    sleep 10
+    sudo bluetoothctl scan off && sudo bluetoothctl devices
 }
 
 function pair_selected_device {
@@ -50,5 +50,5 @@ EOF
 }
 
 # メインの処理
-search_devices
+devices=$(search_devices)
 pair_selected_device
