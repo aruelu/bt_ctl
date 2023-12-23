@@ -9,7 +9,7 @@ function search_devices {
     sudo bluetoothctl scan off
 
     # バックグラウンドで実行されているプロセスの終了を待機
-    wait $!
+    #wait $!
 
     # 検出されたBluetoothデバイスのリストを表示
     sudo bluetoothctl devices
