@@ -7,11 +7,15 @@ function check_bluetooth {
         exit 1
     fi
 
-    bluetooth_status=$(rfkill list bluetooth | grep -o "Soft blocked: yes")
-    if [ -n "$bluetooth_status" ]; then
-        echo "Bluetoothが無効になっています。有効にしてから再実行してください。"
-        exit 1
-    elif [ "$bluetooth_status" == "" ]; then
+    bluetooth_status=$(rfkill list bluetooth )
+    #if [ -n "$bluetooth_status" ]; then
+        #echo "Bluetoothが無効になっています。有効にしてから再実行してください。"
+        #exit 1
+    #elif [ "$bluetooth_status" == "" ]; then
+        #echo "Bluetoothが無効になっています。有効にしてから再実行してください。"
+        #exit 1
+    #fi
+    if [ "$bluetooth_status" == "" ]; then
         echo "Bluetoothが無効になっています。有効にしてから再実行してください。"
         exit 1
     fi
@@ -19,28 +23,33 @@ function check_bluetooth {
 
 
 function search_devices {
-    (bluetoothctl scan on && sleep 5) &
+    bluetoothctl scan on  &
     search_pid=$!
     sleep_time=10
     sleep "$sleep_time"
     kill -TERM "$search_pid" >/dev/null 2>&1
     devices=$(bluetoothctl devices | grep Device)
+echo "$devices"
     if [ -z "$devices" ]; then
         echo "デバイスが見つかりませんでした。終了します。"
         exit 1
     fi
     echo "利用可能なBluetoothデバイス:"
-    available_devices=$(echo "$devices" | grep -v "$(bluetoothctl paired-devices | grep Device | awk '{print $2}')")
-    if [ -z "$available_devices" ]; then
-        echo "ペアリングモードが終了しました。終了します。"
-        exit 1
-    fi
-    echo "$available_devices" | nl -w2 -s') '
-    echo "$available_devices"
+    echo "$devices" | nl -w2 -s') '
+    #available_devices=$(echo "$devices" |  grep "Device" | awk '{print $2}')
+    available_devices="$devices"
+#    if [ -z "$available_devices" ]; then
+#        echo "ペアリングモードが終了しました。終了します。"
+#        exit 1
+#    fi
+    #echo "$available_devices" | nl -w2 -s') '
+    #echo "$available_devices"
+    read -p "ペアリングするデバイスの番号を入力してください (99で再検索, 0で終了)：" device_mac
 }
 
 function pair_device {
     local device_mac=$1
+    echo "$device_mac"
     read -p "このデバイスに対してピンコードを使用しますか？ (y/n): " use_pin
     if [ "$use_pin" == "y" ]; then
         read -p "ピンコードを入力してください: " pin_code
@@ -70,8 +79,9 @@ while true; do
 
     case $action in
         1)
-            echo "ペアリングするデバイスの番号を入力してください (99で再検索, 0で終了):"
-            device_mac=$(search_devices)
+            echo "デバイスの検索中・・・"
+            search_devices
+            #device_mac=$(search_devices)
             if [ "$device_mac" == "99" ]; then
                 continue
             elif [ "$device_mac" == "0" ]; then
