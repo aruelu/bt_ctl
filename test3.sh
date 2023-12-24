@@ -2,6 +2,24 @@
 
 # チェック関数: Bluetoothが有効かどうか
 function check_bluetooth {
+    if ! command -v bluetoothctl &> /dev/null; then
+        echo "Bluetoothの機能が利用できません。終了します。"
+        exit 1
+    fi
+
+    bluetooth_status=$(rfkill list bluetooth | grep -o "Soft blocked: yes")
+
+    if [ -n "$bluetooth_status" ]; then
+        echo "Bluetoothが無効になっています。有効にしてから再実行してください。"
+        exit 1
+    fi
+}
+
+# Bluetoothの有効性をチェック
+check_bluetooth
+
+# チェック関数: Bluetoothが有効かどうか
+function check_bluetooth {
     bluetooth_status=$(rfkill list bluetooth | grep -o "Soft blocked: yes")
 
     if [ -n "$bluetooth_status" ]; then
