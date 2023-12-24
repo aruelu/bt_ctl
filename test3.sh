@@ -10,9 +10,10 @@ function check_bluetooth {
     fi
 }
 
-function search_devices {
-    check_bluetooth
+# Bluetoothの有効性をチェック
+check_bluetooth
 
+function search_devices {
     (bluetoothctl scan on && sleep 5) &
     search_pid=$!
     sleep_time=10
