@@ -91,4 +91,28 @@ while true; do
                 exit 1
             fi
             if [ "$device_number" -le 0 ] || [ "$device_number" -gt $(echo "$paired_devices" | wc -l) ]; then
-                echo "無効なデバ
+                echo "無効なデバイス番号が選択されました。終了します。"
+                exit 1
+            fi
+            device_mac=$(echo "$paired_devices" | sed -n "${device_number}p" | awk '{print $2}')
+            if [ -z "$device_mac" ]; then
+                echo "無効なデバイス番号が選択されました。終了します。"
+                exit 1
+            fi
+            unpair_device "$device_mac"
+            ;;
+        0)
+            echo "終了します."
+            exit 0
+            ;;
+        *)
+            echo "無効な操作が選択されました。終了します。"
+            exit 1
+            ;;
+    esac
+done
+
+echo "Bluetoothデバイス:"
+bluetoothctl devices | grep Device | nl -w2 -s') '
+echo "ペアリングされているBluetoothデバイス:"
+bluetoothctl paired-devices | grep Device | nl -w2 -s') '
