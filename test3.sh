@@ -1,5 +1,15 @@
 #!/bin/bash
 
+# チェック関数: Bluetoothが有効かどうか
+function check_bluetooth {
+    bluetooth_status=$(rfkill list bluetooth | grep -o "Soft blocked: yes")
+
+    if [ -n "$bluetooth_status" ]; then
+        echo "Bluetoothが無効になっています。有効にしてから再実行してください。"
+        exit 1
+    fi
+}
+
 function search_devices {
     (bluetoothctl scan on && sleep 5) &
     search_pid=$!
@@ -40,6 +50,10 @@ function unpair_device {
 }
 
 while true; do
+
+    # 事前にBluetoothが有効かチェック
+    check_bluetooth
+
     read -p "機能を選択してください (1: ペアリング, 2: ペアリング解除, 0: 終了): " action
 
     case $action in
