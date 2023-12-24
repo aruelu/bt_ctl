@@ -11,13 +11,18 @@ function check_bluetooth {
 }
 
 function search_devices {
+    check_bluetooth
+
     (bluetoothctl scan on && sleep 5) &
     search_pid=$!
     sleep_time=10
     sleep "$sleep_time"
     kill -TERM "$search_pid" >/dev/null 2>&1
     devices=$(bluetoothctl devices | grep Device)
-
+    if [ -z "$devices" ]; then
+        echo "デバイスが見つかりませんでした。終了します。"
+        exit 1
+    fi
     echo "利用可能なBluetoothデバイス:"
     available_devices=$(echo "$devices" | grep -v "$(bluetoothctl paired-devices | grep Device | awk '{print $2}')")
     if [ -z "$available_devices" ]; then
@@ -50,10 +55,6 @@ function unpair_device {
 }
 
 while true; do
-
-    # 事前にBluetoothが有効かチェック
-    check_bluetooth
-
     read -p "機能を選択してください (1: ペアリング, 2: ペアリング解除, 0: 終了): " action
 
     case $action in
