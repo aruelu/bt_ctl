@@ -53,9 +53,16 @@ function pair_device {
     read -p "このデバイスに対してピンコードを使用しますか？ (y/n): " use_pin
     if [ "$use_pin" == "y" ]; then
         read -p "ピンコードを入力してください: " pin_code
-        bluetoothctl pair "$device_mac" "$pin_code"
+        result=$(bluetoothctl pair "$device_mac" "$pin_code" | grep "Device has been paired")
     else
-        bluetoothctl pair "$device_mac"
+        result=$(bluetoothctl pair "$device_mac" | grep "Device has been paired")
+    fi
+
+    if [ -n "$result" ]; then
+        echo "ペアリングが成功しました。"
+    else
+        echo "ペアリングが失敗しました。終了します。"
+        exit 1
     fi
 }
 
