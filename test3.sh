@@ -7,10 +7,7 @@ function search_devices {
     sleep "$sleep_time"
     kill -TERM "$search_pid" >/dev/null 2>&1
     devices=$(bluetoothctl devices | grep Device)
-    if [ -z "$devices" ]; then
-        echo "デバイスが見つかりませんでした。終了します。"
-        exit 1
-    fi
+
     echo "利用可能なBluetoothデバイス:"
     available_devices=$(echo "$devices" | grep -v "$(bluetoothctl paired-devices | grep Device | awk '{print $2}')")
     if [ -z "$available_devices" ]; then
