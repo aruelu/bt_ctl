@@ -1,49 +1,53 @@
 #!/bin/bash
 
-function search_devices {
-    # Bluetoothデバイスの検索をバックグラウンドで実行
-    (bluetoothctl scan on && sleep 5) &
-
-    # バックグラウンドで実行しているプロセスのPIDを取得
-    search_pid=$!
-
-    # 一定時間待つ
-    sleep_time=10
-    sleep "$sleep_time"
-
-    # バックグラウンドで実行しているプロセスをkill
-    kill -TERM "$search_pid" >/dev/null 2>&1
-
-    # 検索結果のBluetoothデバイスを表示
-    devices=$(bluetoothctl devices | grep Device)
-
-    # 利用可能なBluetoothデバイスを番号を振って表示
-    echo "利用可能なBluetoothデバイス:"
-    available_devices=$(echo "$devices" | grep -v "$(bluetoothctl paired-devices | grep Device | awk '{print $2}')")
-    echo "$available_devices" | nl -w2 -s') '
-
-    # デバイスの番号を取得
-    read -p "デバイスの番号を入力してください (0で終了): " device_number
-
-    if [ "$device_number" -eq 0 ]; then
-        echo "終了します。"
-        exit 0
-    fi
-
-    # デバイスのMACアドレスを抽出
-    device_mac=$(echo "$available_devices" | sed -n "${device_number}p" | awk '{print $2}')
-
-    if [ -z "$device_mac" ]; then
-        echo "無効なデバイス番号が選択されました。"
+# チェック関数: Bluetoothが有効かどうか
+function check_bluetooth {
+    if ! command -v bluetoothctl &> /dev/null; then
+        echo "Bluetoothの機能が利用できません。終了します。"
         exit 1
     fi
 
-    echo "$device_mac"
+    bluetooth_status=$(rfkill list bluetooth | grep -o "Soft blocked: yes")
+    if [ -n "$bluetooth_status" ]; then
+        echo "Bluetoothが無効になっています。有効にしてから再実行してください。"
+        exit 1
+    elif [ "$bluetooth_status" == "" ]; then
+        echo "Bluetoothが無効になっています。有効にしてから再実行してください。"
+        exit 1
+    fi
+}
+
+
+function search_devices {
+    (bluetoothctl scan on && sleep 5) &
+    search_pid=$!
+    sleep_time=10
+    sleep "$sleep_time"
+    kill -TERM "$search_pid" >/dev/null 2>&1
+    devices=$(bluetoothctl devices | grep Device)
+    if [ -z "$devices" ]; then
+        echo "デバイスが見つかりませんでした。終了します。"
+        exit 1
+    fi
+    echo "利用可能なBluetoothデバイス:"
+    available_devices=$(echo "$devices" | grep -v "$(bluetoothctl paired-devices | grep Device | awk '{print $2}')")
+    if [ -z "$available_devices" ]; then
+        echo "ペアリングモードが終了しました。終了します。"
+        exit 1
+    fi
+    echo "$available_devices" | nl -w2 -s') '
+    echo "$available_devices"
 }
 
 function pair_device {
     local device_mac=$1
-    bluetoothctl pair "$device_mac"
+    read -p "このデバイスに対してピンコードを使用しますか？ (y/n): " use_pin
+    if [ "$use_pin" == "y" ]; then
+        read -p "ピンコードを入力してください: " pin_code
+        bluetoothctl pair "$device_mac" "$pin_code"
+    else
+        bluetoothctl pair "$device_mac"
+    fi
 }
 
 function unpair_device {
@@ -56,52 +60,70 @@ function unpair_device {
     fi
 }
 
-# ペアリングまたは削除を選択
-read -p "機能を選択してください (1: ペアリング, 2: ペアリング解除, 0: 終了): " action
+#メイン処理
 
-case $action in
-    1)
-        # ペアリング
-        echo "ペアリングするデバイスの番号を入力してください:"
-        device_mac=$(search_devices)
-        pair_device "$device_mac"
-        ;;
-    2)
-        # ペアリング解除
-        paired_devices=$(bluetoothctl paired-devices | grep Device)
-        if [ -z "$paired_devices" ]; then
-            echo "ペアリングされたデバイスがありません。"
+# Bluetoothの有効性をチェック
+check_bluetooth
+
+while true; do
+    read -p "機能を選択してください (1: ペアリング, 2: ペアリング解除, 0: 終了): " action
+
+    case $action in
+        1)
+            echo "ペアリングするデバイスの番号を入力してください (99で再検索, 0で終了):"
+            device_mac=$(search_devices)
+            if [ "$device_mac" == "99" ]; then
+                continue
+            elif [ "$device_mac" == "0" ]; then
+                echo "終了します."
+                exit 0
+            fi
+            if ! [[ "$device_mac" =~ ^[0-9]+$ ]]; then
+                echo "無効な番号が入力されました。終了します。"
+                exit 1
+            fi
+            if [ "$device_mac" -le 0 ] || [ "$device_mac" -gt $(echo "$available_devices" | wc -l) ]; then
+                echo "無効なデバイス番号が選択されました。終了します。"
+                exit 1
+            fi
+            pair_device $(echo "$available_devices" | sed -n "${device_mac}p" | awk '{print $2}')
+            break
+            ;;
+        2)
+            paired_devices=$(bluetoothctl paired-devices | grep Device)
+            if [ -z "$paired_devices" ]; then
+                echo "ペアリングされたデバイスがありません。"
+                exit 1
+            fi
+            echo "ペアリングされているBluetoothデバイス:"
+            echo "$paired_devices" | nl -w2 -s') '
+            read -p "削除するデバイスの番号を入力してください: " device_number
+            if ! [[ "$device_number" =~ ^[0-9]+$ ]]; then
+                echo "無効な番号が入力されました。終了します。"
+                exit 1
+            fi
+            if [ "$device_number" -le 0 ] || [ "$device_number" -gt $(echo "$paired_devices" | wc -l) ]; then
+                echo "無効なデバイス番号が選択されました。終了します。"
+                exit 1
+            fi
+            device_mac=$(echo "$paired_devices" | sed -n "${device_number}p" | awk '{print $2}')
+            if [ -z "$device_mac" ]; then
+                echo "無効なデバイス番号が選択されました。終了します。"
+                exit 1
+            fi
+            unpair_device "$device_mac"
+            ;;
+        0)
+            echo "終了します."
+            exit 0
+            ;;
+        *)
+            echo "無効な操作が選択されました。終了します。"
             exit 1
-        fi
+            ;;
+    esac
+done
 
-        # ペアリングされたデバイスを番号を振って表示
-        echo "ペアリングされているBluetoothデバイス:"
-        echo "$paired_devices" | nl -w2 -s') '
-
-        # デバイスの番号を取得
-        read -p "削除するデバイスの番号を入力してください: " device_number
-
-        # ペアリング解除対象のデバイスのMACアドレスを抽出
-        device_mac=$(echo "$paired_devices" | sed -n "${device_number}p" | awk '{print $2}')
-
-        if [ -z "$device_mac" ]; then
-            echo "無効なデバイス番号が選択されました。"
-            exit 1
-        fi
-
-        unpair_device "$device_mac"
-        ;;
-    0)
-        echo "終了します."
-        exit 0
-        ;;
-    *)
-        echo "無効な操作が選択されました。"
-        exit 1
-        ;;
-esac
-
-# ペアリングまたは解除後のBluetoothデバイスの一覧を表示
 echo "Bluetoothデバイス:"
 bluetoothctl devices | grep Device | nl -w2 -s') '
 echo "ペアリングされているBluetoothデバイス:"
