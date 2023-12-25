@@ -70,7 +70,16 @@ function pair_device {
 function connect_device {
     local device_mac=$1
     bluetoothctl connect "$device_mac"
-    # ここで必要ならば、接続が成功したかどうかの確認を行う処理を追加できます
+        # 接続が成功したかどうかの確認
+    connected_devices=$(bluetoothctl info | grep "Connected: yes")
+    
+    if [ -n "$connected_devices" ]; then
+        echo "デバイスが正常に接続されました。"
+    else
+        echo "デバイスの接続が失敗しました。"
+        # 何か失敗時の処理を追加する場合はここに追加
+        exit 1
+    fi
 }
 
 function unpair_device {
