@@ -60,10 +60,17 @@ function pair_device {
 
     if [ -n "$result" ]; then
         echo "ペアリングが成功しました。"
+        connect_device "$device_mac"
     else
         echo "ペアリングが失敗しました。終了します。"
         exit 1
     fi
+}
+
+function connect_device {
+    local device_mac=$1
+    bluetoothctl connect "$device_mac"
+    # ここで必要ならば、接続が成功したかどうかの確認を行う処理を追加できます
 }
 
 function unpair_device {
