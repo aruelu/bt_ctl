@@ -44,7 +44,7 @@ echo "$devices"
 #    fi
     #echo "$available_devices" | nl -w2 -s') '
     #echo "$available_devices"
-    read -p "ペアリングするデバイスの番号を入力してください (99で再検索, 0で終了)：" device_mac
+    read -p "ペアリングするデバイスの番号を入力してください (99で再検索, 0で終了)：" device_no
 }
 
 function pair_device {
@@ -105,21 +105,21 @@ while true; do
             echo "デバイスの検索中・・・"
             search_devices
             #device_mac=$(search_devices)
-            if [ "$device_mac" == "99" ]; then
+            if [ "$device_no" == "99" ]; then
                 continue
-            elif [ "$device_mac" == "0" ]; then
+            elif [ "$device_no" == "0" ]; then
                 echo "終了します."
                 exit 0
             fi
-            if ! [[ "$device_mac" =~ ^[0-9]+$ ]]; then
+            if ! [[ "$device_no" =~ ^[0-9]+$ ]]; then
                 echo "無効な番号が入力されました。終了します。"
                 exit 1
             fi
-            if [ "$device_mac" -le 0 ] || [ "$device_mac" -gt $(echo "$available_devices" | wc -l) ]; then
+            if [ "$device_no" -le 0 ] || [ "$device_no" -gt $(echo "$available_devices" | wc -l) ]; then
                 echo "無効なデバイス番号が選択されました。終了します。"
                 exit 1
             fi
-            pair_device $(echo "$available_devices" | sed -n "${device_mac}p" | awk '{print $2}')
+            pair_device $(echo "$available_devices" | sed -n "${device_no}p" | awk '{print $2}')
             break
             ;;
         2)
