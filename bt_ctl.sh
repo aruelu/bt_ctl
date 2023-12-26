@@ -12,6 +12,11 @@ function check_bluetooth {
         echo "Bluetoothが無効になっています。有効にしてから再実行してください。"
         exit 1
     fi
+    blocked=$(echo "$bluetooth_status" | grep "yes")
+    if [ "$blocked" != "" ]; then
+        echo "Bluetoothが無効になっています。有効にしてから再実行してください。"
+        exit 1
+    fi
 }
 
 
