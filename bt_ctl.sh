@@ -8,13 +8,6 @@ function check_bluetooth {
     fi
 
     bluetooth_status=$(rfkill list bluetooth )
-    #if [ -n "$bluetooth_status" ]; then
-        #echo "Bluetoothが無効になっています。有効にしてから再実行してください。"
-        #exit 1
-    #elif [ "$bluetooth_status" == "" ]; then
-        #echo "Bluetoothが無効になっています。有効にしてから再実行してください。"
-        #exit 1
-    #fi
     if [ "$bluetooth_status" == "" ]; then
         echo "Bluetoothが無効になっています。有効にしてから再実行してください。"
         exit 1
@@ -28,7 +21,8 @@ function search_devices {
     sleep_time=10
     sleep "$sleep_time"
     kill -TERM "$search_pid" >/dev/null 2>&1
-    devices=$(bluetoothctl devices | grep Device)
+    #devices=$(bluetoothctl devices | grep Device)
+    devices=$(bluetoothctl devices | grep Device | grep  -vE "[A-Z0-9]{2}-[A-Z0-9]{2}-[A-Z0-9]{2}-[A-Z0-9]{2}-[A-Z0-9]{2}-[A-Z0-9]{2}")
 echo "$devices"
     if [ -z "$devices" ]; then
         echo "デバイスが見つかりませんでした。終了します。"
@@ -36,26 +30,28 @@ echo "$devices"
     fi
     echo "利用可能なBluetoothデバイス:"
     echo "$devices" | nl -w2 -s') '
-    #available_devices=$(echo "$devices" |  grep "Device" | awk '{print $2}')
     available_devices="$devices"
-#    if [ -z "$available_devices" ]; then
-#        echo "ペアリングモードが終了しました。終了します。"
-#        exit 1
-#    fi
-    #echo "$available_devices" | nl -w2 -s') '
-    #echo "$available_devices"
     read -p "ペアリングするデバイスの番号を入力してください (99で再検索, 0で終了)：" device_number
 }
 
 function pair_device {
     local device_mac=$1
     echo "$device_mac"
+
+    pair_chk=$(bluetoothctl paired-devices | grep "$device_mac") 
+    echo "$pair_chk"
+    
+    if [ -n  "$pair_chk" ]; then
+        echo "すでにペアリングされているため終了します。"
+        exit 1
+    fi
+
     read -p "このデバイスに対してピンコードを使用しますか？ (y/n): " use_pin
     if [ "$use_pin" == "y" ]; then
         read -p "ピンコードを入力してください: " pin_code
-        result=$(bluetoothctl pair "$device_mac" "$pin_code" | grep "Device has been paired")
+        result=$(bluetoothctl pair "$device_mac" "$pin_code" | grep "Paired: yes")
     else
-        result=$(bluetoothctl pair "$device_mac" | grep "Device has been paired")
+        result=$(bluetoothctl pair "$device_mac" | grep "Paired: yes")
     fi
 
     if [ -n "$result" ]; then
@@ -102,9 +98,9 @@ while true; do
 
     case $action in
         1)
+            device_number=""
             echo "デバイスの検索中・・・"
             search_devices
-            #device_mac=$(search_devices)
             if [ "$device_number" == "99" ]; then
                 continue
             elif [ "$device_number" == "0" ]; then
@@ -123,6 +119,7 @@ while true; do
             break
             ;;
         2)
+            device_number=""
             paired_devices=$(bluetoothctl paired-devices | grep Device)
             if [ -z "$paired_devices" ]; then
                 echo "ペアリングされたデバイスがありません。"
