@@ -39,8 +39,6 @@ echo "$devices"
     read -p "ペアリングするデバイスの番号を入力してください (99で再検索, 0で終了)：" device_number
 }
 
-#!/bin/bash
-
 function trust_device {
     local device_mac=$1
     local max_retries=3
