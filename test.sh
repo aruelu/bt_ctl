@@ -39,49 +39,88 @@ echo "$devices"
     read -p "ペアリングするデバイスの番号を入力してください (99で再検索, 0で終了)：" device_number
 }
 
-function pair_device {
+#!/bin/bash
+
+function trust_device {
     local device_mac=$1
-    echo "$device_mac"
+    local max_retries=3
+    local retry_count=0
 
-    pair_chk=$(bluetoothctl paired-devices | grep "$device_mac") 
-    echo "$pair_chk"
-    
-    if [ -n  "$pair_chk" ]; then
-        echo "すでにペアリングされているため終了します。"
-        exit 1
-    fi
+    while [ "$retry_count" -lt "$max_retries" ]; do
+        bluetoothctl trust "$device_mac"
 
-    read -p "このデバイスに対してピンコードを使用しますか？ (y/n): " use_pin
-    if [ "$use_pin" == "y" ]; then
-        read -p "ピンコードを入力してください: " pin_code
-        result=$(bluetoothctl pair "$device_mac" "$pin_code" | grep "Paired: yes")
-    else
-        result=$(bluetoothctl pair "$device_mac" | grep "Paired: yes")
-    fi
+        # 信頼設定が成功したかどうかの確認
+        trusted_devices=$(bluetoothctl info "$device_mac" | grep "Trusted: yes")
 
-    if [ -n "$result" ]; then
-        echo "ペアリングが成功しました。"
-        connect_device "$device_mac"
-    else
-        echo "ペアリングが失敗しました。終了します。"
-        exit 1
-    fi
+        if [ -n "$trusted_devices" ]; then
+            echo "デバイスが正常に信頼設定されました。"
+            return 0  # 成功した場合は関数を終了
+        else
+            echo "デバイスの信頼設定が失敗しました。再試行します。"
+            retry_count=$((retry_count + 1))
+            sleep 2  # 一定時間待ってから再試行
+        fi
+    done
+
+    echo "デバイスの信頼設定が $max_retries 回試行しても失敗しました。"
+    exit 1
 }
 
 function connect_device {
     local device_mac=$1
-    bluetoothctl connect "$device_mac"
+    local max_retries=3
+    local retry_count=0
+
+    while [ "$retry_count" -lt "$max_retries" ]; do
+        bluetoothctl connect "$device_mac"
+
         # 接続が成功したかどうかの確認
-    connected_devices=$(bluetoothctl info | grep "Connected: yes")
-    
-    if [ -n "$connected_devices" ]; then
-        echo "デバイスが正常に接続されました。"
-    else
-        echo "デバイスの接続が失敗しました。"
-        # 何か失敗時の処理を追加する場合はここに追加
-        exit 1
-    fi
+        connected_devices=$(bluetoothctl info "$device_mac" | grep "Connected: yes")
+
+        if [ -n "$connected_devices" ]; then
+            echo "デバイスが正常に接続されました。"
+            return 0  # 成功した場合は関数を終了
+        else
+            echo "デバイスの接続が失敗しました。再試行します。"
+            retry_count=$((retry_count + 1))
+            sleep 2  # 一定時間待ってから再試行
+        fi
+    done
+
+    echo "デバイスの接続が $max_retries 回試行しても失敗しました。"
+    exit 1
 }
+
+function pair_device {
+    local device_mac=$1
+    local max_retries=3
+    local retry_count=0
+
+    while [ "$retry_count" -lt "$max_retries" ]; do
+        read -p "このデバイスに対してピンコードを使用しますか？ (y/n): " use_pin
+        if [ "$use_pin" == "y" ]; then
+            read -p "ピンコードを入力してください: " pin_code
+            result=$(bluetoothctl pair "$device_mac" "$pin_code" | grep "Paired: yes")
+        else
+            result=$(bluetoothctl pair "$device_mac" | grep "Paired: yes")
+        fi
+
+        if [ -n "$result" ]; then
+            echo "ペアリングが成功しました。"
+            trust_device "$device_mac"
+            connect_device "$device_mac"
+            return 0  # 成功した場合は関数を終了
+        else
+            echo "ペアリングが失敗しました。再試行します。"
+            retry_count=$((retry_count + 1))
+            sleep 2  # 一定時間待ってから再試行
+        fi
+    done
+
+    echo "デバイスのペアリングが $max_retries 回試行しても失敗しました。"
+    exit 1
+}
+
 
 function unpair_device {
     local device_mac=$1
